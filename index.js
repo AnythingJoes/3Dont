@@ -26,14 +26,25 @@ WebAssembly.instantiateStreaming(fetch('main.wasm'), {
             }
             context.lineTo(x, y)
 
-            context.fill()
             context.stroke()
         },
     }
 }).then(result => {
     memory = result.instance.exports.memory
-    canvas.style.backgroundColor = `rgb(${Math.floor(255 * 0.2)}, ${Math.floor(255 * 0.3)}, ${Math.floor(255 * 0.3)}, 255)`
-    context.clearRect(0, 0, canvas.width, canvas.height)
     context.lineWidth = 2
-    result.instance.exports.render()
+    canvas.style.backgroundColor = `rgb(${Math.floor(255 * 0.2)}, ${Math.floor(255 * 0.3)}, ${Math.floor(255 * 0.3)}, 255)`
+
+    let previousTime;
+
+    let loopBody = timestamp => {
+        if (previousTime === undefined) {
+            previousTime = timestamp
+        }
+        const dt = timestamp - previousTime;
+
+        context.clearRect(0, 0, canvas.width, canvas.height)
+        result.instance.exports.render(dt, canvas.height / canvas.width)
+        window.requestAnimationFrame(loopBody)
+    }
+    window.requestAnimationFrame(loopBody)
 });
