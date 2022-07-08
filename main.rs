@@ -1,11 +1,12 @@
 #![no_main]
 
-#[panic_handler]
-fn panic_handler(_info: &PanicInfo) -> ! {
-    loop {}
+extern "C" {
+    fn draw_triangle(vertices: *const f32);
 }
 
 #[no_mangle]
-extern "C" fn hello_sum(x: i32, y: i32) -> i32 {
-    x + y
+extern "C" fn render() {
+    let triangle = [-0.5, -0.5, 0.0, 0.5, -0.5, 0.0, 0.0, 0.5, 0.0];
+
+    unsafe { draw_triangle(triangle.as_ptr()) }
 }
