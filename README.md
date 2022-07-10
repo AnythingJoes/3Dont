@@ -3,8 +3,7 @@ An Ill-advised, home-rolled 3d engine using Rust and Wasm
 
 ## Quick Start
 ```
-rustup target add wasm32-unknown-unknown
-rustc --targer=wasm32-unkown-unknown main.rs
+wasm-pack build --target web --dev
 python3 -m http.server 3000
 ```
 
