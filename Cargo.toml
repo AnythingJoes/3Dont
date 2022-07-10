@@ -23,4 +23,5 @@ features = [
     "CanvasRenderingContext2d",
     "HtmlCanvasElement",
     "CssStyleDeclaration",
+    "ImageData",
 ]
