@@ -4,11 +4,10 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use wasm_bindgen::prelude::*;
-use wasm_bindgen::Clamped;
 use wasm_bindgen::JsCast;
 use web_sys::ImageData;
 
-const _ROTATION_SCALE: f32 = 0.001;
+const ROTATION_SCALE: f32 = 0.001;
 
 #[wasm_bindgen]
 extern "C" {
@@ -39,11 +38,7 @@ fn request_animation_frame(
     Ok(())
 }
 
-fn draw_triangle(
-    vertices: &[f32; 9],
-    buffer: &mut Clamped<Vec<u8>>,
-    image_data: &web_sys::ImageData,
-) {
+fn draw_triangle(vertices: &[f32; 9], buffer: &mut [u8], image_data: &web_sys::ImageData) {
     // Assumptions
     // - the bottom two vertices are on the same line
     // - vertices are in normalized space -1..1
@@ -65,40 +60,42 @@ fn draw_triangle(
         })
         .collect();
     vertices.sort_by(|a, b| a[1].cmp(&b[1]));
-    // log(&format!("{}, {}", vertices[0][0], vertices[0][1]));
-    // log(&format!("{}, {}", vertices[1][0], vertices[1][1]));
-    // log(&format!("{}, {}", vertices[2][0], vertices[2][1]));
 
-    let dy = vertices[0][1] - vertices[1][1];
+    let dy = (vertices[0][1] - vertices[1][1]).abs();
 
-    let dx1 = vertices[0][0] - vertices[1][0];
-    let dx1: f32 = dx1 as f32 / dy as f32;
+    let dxl = vertices[1][0] - vertices[0][0];
+    let mut dxl: f32 = dxl as f32 / dy as f32;
 
-    let dx2 = vertices[0][0] - vertices[2][0];
-    let dx2: f32 = dx2 as f32 / dy as f32;
-    let mut dxs = [dx1, dx2];
-    dxs.sort_by(|a, b| a.partial_cmp(b).unwrap());
-    let start_x = vertices[0][0];
+    let dxr = vertices[2][0] - vertices[0][0];
+    let mut dxr: f32 = dxr as f32 / dy as f32;
 
-    for row in vertices[0][1]..=vertices[1][1] {
-        let y = row - vertices[0][1];
-        let start = start_x + (y as f32 * dxs[0]) as i32;
-        let end = start_x + (y as f32 * dxs[1]) as i32;
-        for column in start..=end {
-            for (i, &byte) in color.iter().enumerate() {
-                buffer[(row * image_data.width() as i32 * 4 + column * 4 + i as i32) as usize] =
-                    byte;
-            }
-        }
+    if dxl > dxr {
+        (dxl, dxr) = (dxr, dxl);
     }
+    let start_x = vertices[0][0];
+    buffer
+        .chunks_mut(image_data.width() as usize * 4)
+        .skip(vertices[0][1] as usize)
+        .take(dy as usize)
+        .enumerate()
+        .for_each(|(i, row)| {
+            let start = (start_x + (i as f32 * dxl) as i32) as usize * 4;
+            let stop = (start_x + (i as f32 * dxr) as i32) as usize * 4;
+            row[start..stop].copy_from_slice(
+                &std::iter::repeat(color)
+                    .flatten()
+                    .take(stop - start)
+                    .collect::<Vec<u8>>(),
+            );
+        });
 }
 
 fn render(
     context: &web_sys::CanvasRenderingContext2d,
-    buffer: &mut Clamped<Vec<u8>>,
+    buffer: &mut [u8],
     image_data: &web_sys::ImageData,
     aspect: f32,
-    _dt: f32,
+    dt: f32,
 ) -> Result<(), JsValue> {
     let mut triangle = [-0.5, -0.5, 0.0, 0.5, -0.5, 0.0, 0.0, 0.5, 0.0];
     context.clear_rect(
@@ -108,14 +105,14 @@ fn render(
         image_data.height().into(),
     );
 
-    // let sin_dt = (ROTATION_SCALE * dt).sin();
-    // let cos_dt = (ROTATION_SCALE * dt).cos();
-    // let rotation = [
-    //     [cos_dt, -sin_dt, 0.0, 0.0],
-    //     [sin_dt, cos_dt, 0.0, 0.0],
-    //     [0.0, 0.0, 1.0, 0.0],
-    //     [0.0, 0.0, 0.0, 1.0],
-    // ];
+    let sin_dt = (ROTATION_SCALE * dt).sin();
+    let cos_dt = (ROTATION_SCALE * dt).cos();
+    let rotation = [
+        [cos_dt, -sin_dt, 0.0, 0.0],
+        [sin_dt, cos_dt, 0.0, 0.0],
+        [0.0, 0.0, 1.0, 0.0],
+        [0.0, 0.0, 0.0, 1.0],
+    ];
     let scale = [
         [aspect, 0.0, 0.0, 0.0],
         [0.0, 1.0, 0.0, 0.0],
@@ -123,12 +120,12 @@ fn render(
         [0.0, 0.0, 0.0, 1.0],
     ];
     for chunk in triangle.chunks_exact_mut(3) {
-        // let x = chunk[0];
-        // let y = chunk[1];
-        // let z = chunk[2];
-        // chunk[0] = rotation[0][0] * x + rotation[1][0] * y + rotation[2][0] * z + rotation[3][0];
-        // chunk[1] = rotation[0][1] * x + rotation[1][1] * y + rotation[2][1] * z + rotation[3][1];
-        // chunk[2] = rotation[0][2] * x + rotation[1][2] * y + rotation[2][2] * z + rotation[3][2];
+        let x = chunk[0];
+        let y = chunk[1];
+        let z = chunk[2];
+        chunk[0] = rotation[0][0] * x + rotation[1][0] * y + rotation[2][0] * z + rotation[3][0];
+        chunk[1] = rotation[0][1] * x + rotation[1][1] * y + rotation[2][1] * z + rotation[3][1];
+        chunk[2] = rotation[0][2] * x + rotation[1][2] * y + rotation[2][2] * z + rotation[3][2];
 
         let x = chunk[0];
         let y = chunk[1];
@@ -138,6 +135,7 @@ fn render(
         chunk[2] = scale[0][2] * x + scale[1][2] * y + scale[2][2] * z + scale[3][2];
     }
 
+    buffer.iter_mut().for_each(|byte| *byte = 0);
     draw_triangle(&triangle, buffer, image_data);
 
     let data = ImageData::new_with_u8_clamped_array_and_sh(
@@ -173,23 +171,14 @@ pub fn main() -> Result<(), JsValue> {
     let f = Rc::new(RefCell::new(None));
     let g = f.clone();
 
-    let mut previous = None;
     *g.borrow_mut() = Some(Closure::new(Box::new(move |timestamp| {
-        if previous.is_none() {
-            previous = Some(timestamp);
-        }
-        render(
-            &context,
-            &mut buffer,
-            &image_data,
-            aspect,
-            timestamp - previous.unwrap(),
-        )?;
+        render(&context, &mut buffer, &image_data, aspect, timestamp)?;
         request_animation_frame(
             f.borrow()
                 .as_ref()
                 .ok_or("couldn't start animation frame")?,
         )?;
+
         Ok(())
     })
         as Box<dyn FnMut(f32) -> Result<(), JsValue>>));
