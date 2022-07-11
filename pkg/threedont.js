@@ -212,9 +212,6 @@ function getImports() {
     imports.wbg.__wbg_putImageData_f71b039a7f3a0d8a = function() { return handleError(function (arg0, arg1, arg2, arg3) {
         getObject(arg0).putImageData(getObject(arg1), arg2, arg3);
     }, arguments) };
-    imports.wbg.__wbg_clearRect_7d73f724a3fc825c = function(arg0, arg1, arg2, arg3, arg4) {
-        getObject(arg0).clearRect(arg1, arg2, arg3, arg4);
-    };
     imports.wbg.__wbg_instanceof_HtmlCanvasElement_7b561bd94e483f1d = function(arg0) {
         const ret = getObject(arg0) instanceof HTMLCanvasElement;
         return ret;
